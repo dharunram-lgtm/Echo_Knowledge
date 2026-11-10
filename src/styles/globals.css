@@ -1,0 +1,32 @@
+@import "tailwindcss";
+@import "./theme.css";
+@import "./fluent.css";
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: var(--font-family-base);
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Native desktop application feel */
+body {
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  pointer-events: auto !important;
+}
+

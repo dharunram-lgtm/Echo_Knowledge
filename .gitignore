@@ -1,0 +1,71 @@
+# Dependencies and generated build output
+node_modules/
+dist/
+dist-ssr/
+target/
+.vite/
+src-tauri/target/
+
+# Environment files and local configuration
+.env
+.env.*
+!.env.example
+*.local
+
+# Secrets, credentials, certificates, and private keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+credentials.json
+secrets.json
+secrets/
+credentials/
+
+# Logs and temporary files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# Local ECHO databases, caches, vaults, and imported personal documents
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+database/
+vault/
+documents/
+imported/
+.echo/
+
+# Windows-generated files
+[Tt]humbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Editor directories and files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+

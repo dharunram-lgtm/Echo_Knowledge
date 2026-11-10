@@ -1,0 +1,65 @@
+# Data Structures & Algorithms in Java: Comprehensive Reference Notes
+
+## 1. Overview
+This reference guide details core algorithmic paradigms and fundamental data structures implemented using Java. Key subjects include dynamic programming, greedy algorithms, linked lists, and binary search.
+
+## 2. Linked Lists
+A linked list is a linear data structure where elements are stored in nodes, and each node points to the next node via a pointer/reference.
+
+### Singly Linked List Implementation in Java:
+```java
+public class SinglyLinkedList<T> {
+    private static class Node<T> {
+        T data;
+        Node<T> next;
+        Node(T data) { this.data = data; this.next = null; }
+    }
+    private Node<T> head;
+
+    public void insertAtHead(T val) {
+        Node<T> newNode = new Node<>(val);
+        newNode.next = head;
+        head = newNode;
+    }
+}
+```
+
+### Doubly Linked List:
+In a Doubly Linked List, each node maintains references to both the next node (`next`) and the previous node (`prev`), facilitating bidirectional traversal and O(1) removal when a node pointer is given.
+
+## 3. Binary Search
+Binary search is an efficient logarithmic-time O(log N) algorithm for finding the position of a target value within a sorted array. It repeatedly divides the search interval in half.
+
+### Java Implementation:
+```java
+public static int binarySearch(int[] arr, int target) {
+    int low = 0;
+    int high = arr.length - 1;
+    while (low <= high) {
+        int mid = low + (high - low) / 2; // Prevents integer overflow
+        if (arr[mid] == target) return mid;
+        else if (arr[mid] < target) low = mid + 1;
+        else high = mid - 1;
+    }
+    return -1;
+}
+```
+
+## 4. Greedy Algorithms
+A greedy algorithm makes the locally optimal choice at each stage with the hope of finding a global optimum. 
+
+### Classical Problem: Activity Selection
+Given a set of activities with start and finish times, select the maximum number of activities that can be performed by a single person, assuming that a person can only work on a single activity at a time.
+Greedy rule: Always pick the next activity whose finish time is earliest among remaining compatible activities.
+Greedy choice property and optimal substructure guarantee correctness.
+
+## 5. Dynamic Programming (DP)
+Dynamic Programming is an optimization technique that solves complex problems by breaking them down into overlapping subproblems and storing the results using memoization (top-down) or tabulation (bottom-up).
+
+### 0/1 Knapsack Problem:
+Given weights and values of n items, put these items in a knapsack of capacity W to get the maximum total value in the knapsack.
+Recurrence relation:
+`dp[i][w] = max(val[i-1] + dp[i-1][w - wt[i-1]], dp[i-1][w])`
+Time complexity: O(N * W) pseudo-polynomial.
+Space complexity: O(N * W) reducible to O(W) with 1D state optimization.
+

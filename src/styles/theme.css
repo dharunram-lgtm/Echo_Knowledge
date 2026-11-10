@@ -1,0 +1,109 @@
+/**
+ * ECHO Design System - Theme Tokens
+ * Windows 11 Fluent Design Inspired
+ */
+
+:root {
+  /* Color Palette - Light Mode */
+  --bg-app: #f9f9f9;
+  --bg-subtle: #f3f3f3;
+  --bg-card: #ffffff;
+  --bg-card-hover: #fcfcfc;
+  --bg-elevated: #ffffff;
+  --bg-active: #e5e5e5;
+  --bg-sidebar: #f0f2f5;
+  --bg-titlebar: #ebeef2;
+  --bg-statusbar: #f0f2f5;
+
+  /* Text & Foreground */
+  --text-primary: #1c1c1c;
+  --text-secondary: #5c5c5c;
+  --text-tertiary: #8a8a8a;
+  --text-disabled: #a0a0a0;
+  --text-inverse: #ffffff;
+
+  /* Borders & Dividers */
+  --border-subtle: rgba(0, 0, 0, 0.06);
+  --border-default: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.18);
+  --border-focus: #0067c0;
+
+  /* Brand / Accent - Windows 11 Fluent Blue */
+  --accent-primary: #0067c0;
+  --accent-hover: #1879cd;
+  --accent-pressed: #005a9e;
+  --accent-subtle: rgba(0, 103, 192, 0.08);
+  --accent-foreground: #ffffff;
+
+  /* Semantic Feedback */
+  --status-success: #107c41;
+  --status-warning: #8a5700;
+  --status-danger: #c42b1c;
+  --status-info: #0067c0;
+  --status-neutral: #616161;
+
+  /* Radii - Windows 11 Standard */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* Shadows - Fluent Elevation */
+  --shadow-rest: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-flyout: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-dialog: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* Typography */
+  --font-family-base: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", sans-serif;
+  --font-family-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", sans-serif;
+  --font-family-mono: "Cascadia Code", "Consolas", monospace;
+}
+
+[data-theme="dark"],
+.dark {
+  /* Color Palette - Dark Charcoal Surfaces */
+  --bg-app: #181819;
+  --bg-subtle: #202022;
+  --bg-card: #27272a;
+  --bg-card-hover: #2f2f33;
+  --bg-elevated: #323236;
+  --bg-active: #3a3a3f;
+  --bg-sidebar: #1e1e20;
+  --bg-titlebar: #1c1c1e;
+  --bg-statusbar: #1c1c1e;
+
+  /* Text & Foreground */
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --text-disabled: #52525b;
+  --text-inverse: #181819;
+
+  /* Borders & Dividers */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-focus: #4cc2ff;
+
+  /* Brand / Accent - Windows 11 Fluent Blue */
+  --accent-primary: #4cc2ff;
+  --accent-hover: #60cdff;
+  --accent-pressed: #3baee5;
+  --accent-subtle: rgba(76, 194, 255, 0.12);
+  --accent-foreground: #000000;
+
+  /* Semantic Feedback */
+  --status-success: #6ccb5f;
+  --status-warning: #fce100;
+  --status-danger: #ff99a4;
+  --status-info: #4cc2ff;
+  --status-neutral: #a1a1aa;
+
+  /* Shadows - Fluent Elevation Dark */
+  --shadow-rest: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-flyout: 0 6px 16px rgba(0, 0, 0, 0.45);
+  --shadow-dialog: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+

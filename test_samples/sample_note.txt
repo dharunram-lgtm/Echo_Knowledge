@@ -1,0 +1,1 @@
+ECHO Architecture Note: Local-first knowledge operating systems ensure user privacy by processing all personal documents on device.
