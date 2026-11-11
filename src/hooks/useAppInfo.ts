@@ -3,9 +3,9 @@ import type { TauriAppInfo } from "@/types";
 
 export function useAppInfo(): TauriAppInfo {
   const [info, setInfo] = useState<TauriAppInfo>({
-    name: "ECHO",
-    version: "0.1.0",
-    phase: "Phase 1: Project Foundation",
+    name: "ECHO Knowledge",
+    version: "1.0.0",
+    phase: "V1.0.0 Release",
     platform: "Windows",
   });
 

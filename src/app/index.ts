@@ -10,8 +10,8 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG: AppConfig = {
-  appName: "ECHO",
-  version: "0.1.0",
+  appName: "ECHO Knowledge",
+  version: "1.0.0",
   isDesktop: typeof window !== "undefined" && "__TAURI_INTERNALS__" in window,
   defaultTheme: "dark",
 };

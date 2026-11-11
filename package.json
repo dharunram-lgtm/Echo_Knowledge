@@ -1,8 +1,8 @@
 {
-  "name": "echo",
+  "name": "echo-knowledge",
   "private": true,
-  "description": "ECHO - Your Personal AI Knowledge Operating System",
-  "version": "0.1.0",
+  "description": "ECHO Knowledge - local-first personal AI knowledge system",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

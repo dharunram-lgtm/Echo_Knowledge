@@ -1,8 +1,8 @@
-# ECHO — Your Personal AI Knowledge Operating System
+# ECHO Knowledge
 
-ECHO is a privacy-first Windows desktop application designed to serve as an intelligent, local knowledge operating system. It enables users to index and organize personal documents locally, connect their own AI model providers (BYO API key or local Ollama), retrieve information via semantic search, explore concept connections through knowledge graphs, and optionally synchronize encrypted snapshots with Google Drive.
+ECHO is a privacy-first Windows desktop application designed to serve as an intelligent, local knowledge operating system. It enables users to index and organize personal documents locally, connect their own Gemini or Groq provider with a user-supplied API key, retrieve information via semantic search, and explore concept connections through knowledge graphs.
 
-> **Project Phase:** Phase 1 — Project Foundation & Architecture
+> **Release:** v1.0.0 · Windows 11 x64 · Tauri 2 + NSIS
 
 ---
 
@@ -20,8 +20,8 @@ ECHO is a privacy-first Windows desktop application designed to serve as an inte
 ## 🏛 Core Design Principles
 
 1. **Local-First & Zero Telemetry:** Personal documents, embeddings, and database indexes remain strictly on the user's physical machine.
-2. **Bring-Your-Own-Intelligence (BYO-AI):** Freedom to choose and switch between OpenAI, Anthropic Claude, Google Gemini, or 100% offline local models via Ollama.
-3. **Secure Credential Storage:** API keys and authentication tokens are never stored in frontend code or plaintext files. They are managed through native OS credential boundaries (Windows DPAPI / Credential Vault).
+2. **Bring-Your-Own-Intelligence (BYO-AI):** Choose between the supported Gemini and Groq providers using your own API credentials.
+3. **Secure Credential Storage:** API keys are never stored in frontend code or plaintext files. They are managed through native OS credential boundaries (Windows Credential Manager / DPAPI).
 4. **Restricted Desktop Capabilities:** Tauri permissions are strictly scoped to minimal IPC commands. No arbitrary filesystem, shell execution, or ambient network access is permitted.
 5. **Authentic Windows 11 Fluent UI:** Dark charcoal surfaces, Segoe UI Variable typography, subtle translucent borders, and clean native desktop interactions without unnecessary purple gradients or excessive animations.
 
@@ -66,7 +66,40 @@ echo-knowledge/
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Windows 11 installation
+
+Download `ECHO_Knowledge_Windows11_v1.0.0_x64-setup.exe` from the GitHub Releases page and run it. The installer is configured for current-user installation, creates an `ECHO Knowledge` Start Menu shortcut, and registers a standard uninstaller. It does not require Docker or a developer-hosted backend.
+
+Windows 11 normally includes WebView2. If the runtime is missing or outdated, the installer uses Microsoft's WebView2 bootstrapper and therefore needs an internet connection during installation. No ECHO account is required.
+
+Release installer SHA-256: `6B653A1D269C79E596737462C0F6843B17F07184913AD50ACA3EEABD61ED9E77`
+
+### Local data and privacy
+
+ECHO keeps its SQLite database, embeddings, conversations, tags, graph state, and imported document copies outside the installation directory:
+
+```text
+%APPDATA%\com.echo.desktop\ECHO\database\echo.db
+%APPDATA%\com.echo.desktop\ECHO\documents\imported\
+```
+
+The installer does not bundle personal documents, SQLite databases, API keys, credentials, or local vault content. API keys are stored through Windows Credential Manager using the `echo.knowledge.ai` service namespace; they are not written to SQLite or frontend files. Uninstalling removes application files only and is designed to leave the ECHO data directory in place. Reinstalling v1.0.0 with the same identifier can therefore reuse existing local data.
+
+ECHO has no developer-owned proxy or telemetry service. When a cloud provider is selected, document-derived prompts and embeddings are sent directly from the desktop to that provider's API according to the selected workflow. Review your provider's terms before importing sensitive material.
+
+### API key setup
+
+Open **Settings → AI Providers**, select Gemini or Groq, enter your own API key, and save it. ECHO stores the key in Windows Credential Manager. Gemini is used for embeddings and can also be selected for generation; Groq is available for generation and tagging/relationship workflows. Without a configured provider key, local document import and basic local storage remain available, but cloud-backed indexing, semantic retrieval, and Ask ECHO cannot complete.
+
+### Requirements and limitations
+
+- Windows 11 x64, WebView2 Runtime, and the Microsoft Visual C++ runtime available on the system.
+- Internet access is required only for the WebView2 bootstrapper when needed and for selected cloud provider API calls.
+- Supported imports are PDF, Markdown, and plain text. Scanned/image-only PDFs require OCR and are not supported by this release.
+- API usage, quotas, rate limits, and model availability are controlled by Gemini/Groq and are not included with ECHO.
+- User data is local to the Windows account and is not synchronized by this release.
+
+## 🚀 Development setup
 
 ### Prerequisites
 
@@ -98,15 +131,19 @@ npm run tauri dev
 
 ## 🧭 Project Roadmap
 
-- **Phase 1: Project Foundation & File Structure (Current)**
-  - Project initialization, architecture specification, directory layout, strict typing, Windows 11 Fluent design tokens, and lightweight structural components.
-- **Phase 2: Local Persistence & Document Ingestion**
-  - SQLite database setup, folder watcher, document parsing (Markdown, PDF, Plaintext), and chunking engine.
-- **Phase 3: AI Provider Integration & Key Vault**
-  - Windows Credential Manager integration for API keys, OpenAI/Anthropic/Gemini/Ollama client drivers.
-- **Phase 4: Semantic Search & Knowledge Graph**
-  - Local vector embeddings, HNSW index, entity relationship extraction, interactive graph canvas.
-- **Phase 5: Ask ECHO Synthesis & Chat Interface**
-  - Local RAG pipeline, context compilation, streaming response synthesis with source citations.
-- **Phase 6: Google Drive Synchronization**
-  - Encrypted remote snapshots, OAuth synchronization, conflict resolution.
+### v1.0.0 capabilities
+
+- Local SQLite storage for documents, extracted text, embeddings, conversations, tags, concepts, and graph state.
+- PDF, Markdown, and plain-text import, local filename/text search, and document preview.
+- Gemini embeddings and Gemini or Groq cloud-backed generation, tagging, and relationship discovery.
+- Ask ECHO grounded retrieval with source citations and interactive knowledge-graph views.
+
+Cloud-backed features require the user's own provider credentials. When enabled, relevant document content and queries are sent directly to the selected provider for AI processing. No cloud synchronization service is included in v1.0.0.
+
+---
+
+## 📄 License
+
+ECHO is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+Third-party dependencies, runtimes, and bundled assets are subject to their respective open-source licenses.

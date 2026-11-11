@@ -1,10 +1,23 @@
 [package]
 name = "echo"
-version = "0.1.0"
-description = "ECHO - Your Personal AI Knowledge Operating System"
+version = "1.0.0"
+description = "ECHO Knowledge - local-first personal AI knowledge system"
 authors = ["ECHO Core Team"]
 edition = "2024"
 default-run = "echo"
+autobins = false
+
+[features]
+test-runner = []
+
+[[bin]]
+name = "echo"
+path = "src/main.rs"
+
+[[bin]]
+name = "test_runner"
+path = "src/bin/test_runner.rs"
+required-features = ["test-runner"]
 
 [lib]
 name = "echo_lib"
