@@ -52,6 +52,49 @@ impl Default for ModelConfig {
     }
 }
 
+/// Returns the default text-generation model for the configured provider.
+/// The provider identifier is authoritative; model names are never used to
+/// infer which provider is active.
+pub fn default_generation_model_for(provider: &str) -> &'static str {
+    if provider.trim().eq_ignore_ascii_case("groq") {
+        crate::ai::groq::DEFAULT_GROQ_GENERATION_MODEL
+    } else {
+        crate::ai::gemini::DEFAULT_GENERATION_MODEL
+    }
+}
+
+/// Detects a generation-model/provider mismatch using the known model
+/// catalogues for each provider. This intentionally checks model ownership
+/// rather than inferring the provider from a model-name prefix.
+pub fn generation_model_conflicts_with_provider(provider: &str, model: &str) -> bool {
+    let provider = provider.trim().to_lowercase();
+    let retired_gemini_model =
+        matches!(model, "gemini-1.5-flash" | "gemini-2.0-flash");
+
+    match provider.as_str() {
+        "groq" => {
+            retired_gemini_model
+                || crate::ai::gemini::SUPPORTED_GENERATION_MODELS.contains(&model)
+        }
+        "gemini" => {
+            retired_gemini_model
+                || crate::ai::groq::SUPPORTED_GROQ_MODELS.contains(&model)
+        }
+        _ => false,
+    }
+}
+
+/// Repairs stale or cross-provider generation-model selections while keeping
+/// the configured provider as the single source of truth.
+pub fn normalize_generation_model(config: &mut ModelConfig) -> bool {
+    if generation_model_conflicts_with_provider(&config.provider, &config.generation_model) {
+        config.generation_model = default_generation_model_for(&config.provider).to_string();
+        true
+    } else {
+        false
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveredModel {
     pub id: String,

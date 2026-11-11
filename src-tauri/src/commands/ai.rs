@@ -1,10 +1,11 @@
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{Emitter, State};
 
 use crate::ai::{
-    self, BatchIndexResult, DiscoveredModel, DocumentIndexResult, EmbeddingCompatibility,
-    GeminiClient, GroqClient, IndexingOverview, ModelConfig, SUPPORTED_EMBEDDING_MODELS,
-    SUPPORTED_GENERATION_MODELS, SUPPORTED_GROQ_MODELS, SafeProviderStatus, SemanticSearchResult,
+    self, default_generation_model_for, normalize_generation_model, BatchIndexResult,
+    DiscoveredModel, DocumentIndexResult, EmbeddingCompatibility, GeminiClient, GroqClient,
+    IndexingOverview, ModelConfig, SUPPORTED_EMBEDDING_MODELS, SUPPORTED_GENERATION_MODELS,
+    SUPPORTED_GROQ_MODELS, SafeProviderStatus, SemanticSearchResult,
 };
 use crate::database::{self, AppStorage, Conversation, ConversationMessage};
 use crate::security;
@@ -46,26 +47,15 @@ pub async fn get_ai_status(
         }
     };
 
-    // Auto-migrate obsolete gemini-1.5-flash or retired models
+    // Repair retired or cross-provider model selections using the configured
+    // provider as the source of truth. Provider identity is never inferred
+    // from a model-name prefix.
     let mut config_dirty = false;
-    if conf.generation_model == "gemini-1.5-flash" || conf.generation_model == "gemini-2.0-flash" {
-        conf.generation_model = "gemini-3.5-flash".to_string();
-        config_dirty = true;
-    }
     if conf.embedding_model == "text-embedding-004" {
         conf.embedding_model = "gemini-embedding-001".to_string();
         config_dirty = true;
     }
-    if conf.provider.eq_ignore_ascii_case("groq")
-        && conf.generation_model.starts_with("gemini")
-    {
-        conf.generation_model = crate::ai::DEFAULT_GROQ_GENERATION_MODEL.to_string();
-        config_dirty = true;
-    }
-    if conf.provider.eq_ignore_ascii_case("gemini")
-        && !conf.generation_model.starts_with("gemini")
-    {
-        conf.generation_model = crate::ai::DEFAULT_GENERATION_MODEL.to_string();
+    if normalize_generation_model(&mut conf) {
         config_dirty = true;
     }
     if config_dirty {
@@ -147,13 +137,21 @@ pub async fn get_ai_status(
 }
 
 #[tauri::command]
-pub fn save_api_key(provider: String, api_key: String) -> Result<(), String> {
-    security::store_api_key(&provider, &api_key)
+pub fn save_api_key(
+    app: tauri::AppHandle,
+    provider: String,
+    api_key: String,
+) -> Result<(), String> {
+    security::store_api_key(&provider, &api_key)?;
+    let _ = app.emit("ai:provider_changed", ());
+    Ok(())
 }
 
 #[tauri::command]
-pub fn remove_api_key(provider: String) -> Result<bool, String> {
-    security::delete_api_key(&provider)
+pub fn remove_api_key(app: tauri::AppHandle, provider: String) -> Result<bool, String> {
+    let removed = security::delete_api_key(&provider)?;
+    let _ = app.emit("ai:provider_changed", ());
+    Ok(removed)
 }
 
 #[tauri::command]
@@ -261,44 +259,69 @@ pub fn get_model_config(
     let conn = storage.conn.lock().map_err(|e| e.to_string())?;
     if let Ok(Some(saved_json)) = database::get_app_setting(&conn, "model_config") {
         if let Ok(mut saved_conf) = serde_json::from_str::<ModelConfig>(&saved_json) {
-            if saved_conf.generation_model == "gemini-1.5-flash"
-                || saved_conf.generation_model == "gemini-2.0-flash"
-            {
-                saved_conf.generation_model = "gemini-3.5-flash".to_string();
-            }
+            let mut config_dirty = false;
             if saved_conf.embedding_model == "text-embedding-004" {
                 saved_conf.embedding_model = "gemini-embedding-001".to_string();
+                config_dirty = true;
             }
-            let mut conf = ai.config.lock().map_err(|e| e.to_string())?;
-            *conf = saved_conf.clone();
+            if normalize_generation_model(&mut saved_conf) {
+                config_dirty = true;
+            }
+            {
+                let mut conf = ai.config.lock().map_err(|e| e.to_string())?;
+                *conf = saved_conf.clone();
+            }
+            if config_dirty {
+                if let Ok(json_str) = serde_json::to_string(&saved_conf) {
+                    let _ = database::set_app_setting(&conn, "model_config", &json_str);
+                }
+            }
             return Ok(saved_conf);
         }
     }
 
     let mut conf = ai.config.lock().map_err(|e| e.to_string())?.clone();
-    if conf.generation_model == "gemini-1.5-flash" || conf.generation_model == "gemini-2.0-flash" {
-        conf.generation_model = "gemini-3.5-flash".to_string();
-    }
     if conf.embedding_model == "text-embedding-004" {
         conf.embedding_model = "gemini-embedding-001".to_string();
     }
+    normalize_generation_model(&mut conf);
     Ok(conf)
 }
 
 #[tauri::command]
 pub fn update_model_config(
+    app: tauri::AppHandle,
     storage: State<'_, AppStorage>,
     ai: State<'_, AIState>,
-    config: ModelConfig,
+    mut config: ModelConfig,
 ) -> Result<(), String> {
+    let previous_provider = ai.config.lock().map_err(|e| e.to_string())?.provider.clone();
+    let provider_changed = !previous_provider
+        .trim()
+        .eq_ignore_ascii_case(config.provider.trim());
+
+    if provider_changed {
+        // A model selected for the previous provider is not valid for the new
+        // provider. Reset to that provider's default instead of guessing from
+        // the model name.
+        config.generation_model = default_generation_model_for(&config.provider).to_string();
+    } else {
+        normalize_generation_model(&mut config);
+    }
+
     {
         let mut conf = ai.config.lock().map_err(|e| e.to_string())?;
         *conf = config.clone();
     }
 
     let json_str = serde_json::to_string(&config).map_err(|e| e.to_string())?;
-    let conn = storage.conn.lock().map_err(|e| e.to_string())?;
-    database::set_app_setting(&conn, "model_config", &json_str).map_err(|e| e.to_string())?;
+    {
+        let conn = storage.conn.lock().map_err(|e| e.to_string())?;
+        database::set_app_setting(&conn, "model_config", &json_str)
+            .map_err(|e| e.to_string())?;
+    }
+
+    let _ = app.emit("ai:provider_changed", ());
     Ok(())
 }
 

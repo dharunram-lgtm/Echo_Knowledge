@@ -12,15 +12,42 @@ import {
   Clock,
   RefreshCw,
   Loader2,
+  CloudOff,
 } from "lucide-react";
 import { DocumentService } from "@/services/documents/documentService";
 import { AIService } from "@/services/ai/aiService";
 import { RetryService } from "@/services/ai/retryService";
+import {
+  presentProviderStatus,
+  type ProviderConnectionState,
+} from "@/services/ai/providerPresentation";
 import type { DocumentSummary, StorageInitResponse, StorageStats } from "@/types/documents";
 import type { IndexingOverview, SafeProviderStatus } from "@/types/ai";
 import type { RetryOverview } from "@/types/retry";
 import { formatBytes } from "@/utils";
 import { useRouter } from "@/router";
+
+const PROVIDER_STATUS_COLORS: Record<ProviderConnectionState, string> = {
+  loading: "text-[var(--text-secondary)]",
+  connected: "text-[var(--status-success)]",
+  not_configured: "text-amber-500",
+  disconnected: "text-[var(--text-tertiary)]",
+  error: "text-[var(--status-danger)]",
+};
+
+const renderProviderStatusIcon = (state: ProviderConnectionState) => {
+  switch (state) {
+    case "loading":
+      return <Loader2 className="h-3.5 w-3.5 animate-spin" />;
+    case "connected":
+      return <CheckCircle2 className="h-3.5 w-3.5" />;
+    case "disconnected":
+      return <CloudOff className="h-3.5 w-3.5" />;
+    case "not_configured":
+    case "error":
+      return <AlertCircle className="h-3.5 w-3.5" />;
+  }
+};
 
 export const Dashboard: React.FC = () => {
   const { navigate } = useRouter();
@@ -35,6 +62,7 @@ export const Dashboard: React.FC = () => {
   const [indexing, setIndexing] = useState<IndexingOverview | null>(null);
   const [retryOverview, setRetryOverview] = useState<RetryOverview | null>(null);
   const [aiStatus, setAiStatus] = useState<SafeProviderStatus | null>(null);
+  const [aiStatusError, setAiStatusError] = useState<string | null>(null);
   const [recentDocs, setRecentDocs] = useState<DocumentSummary[]>([]);
   const [initInfo, setInitInfo] = useState<StorageInitResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,10 +71,14 @@ export const Dashboard: React.FC = () => {
 
       const loadDashboardData = useCallback(async () => {
         try {
+          setAiStatusError(null);
           const [storageStats, indexOverview, providerStatus, retryStats, docs, initRes] = await Promise.all([
             DocumentService.getStorageStats(),
             AIService.getIndexingStatus().catch(() => null),
-            AIService.getProviderStatus().catch(() => null),
+            AIService.getProviderStatus().catch((err) => {
+              setAiStatusError(String(err));
+              return null;
+            }),
             RetryService.getRetryOverview().catch(() => null),
             DocumentService.getDocuments(),
             DocumentService.initializeStorage().catch(() => null),
@@ -71,6 +103,7 @@ export const Dashboard: React.FC = () => {
     // Listen to background indexing and tagging events for real-time reactivity
     let unlistenIdx: (() => void) | undefined;
     let unlistenTag: (() => void) | undefined;
+    let unlistenProvider: (() => void) | undefined;
 
       import("@tauri-apps/api/event").then(({ listen }) => {
         listen("indexing:status_changed", () => {
@@ -84,11 +117,18 @@ export const Dashboard: React.FC = () => {
         }).then((unlisten) => {
           unlistenTag = unlisten;
         }).catch(() => { });
+
+        listen("ai:provider_changed", () => {
+          loadDashboardData();
+        }).then((unlisten) => {
+          unlistenProvider = unlisten;
+        }).catch(() => { });
       }).catch(() => { });
 
       return () => {
         if (unlistenIdx) unlistenIdx();
         if (unlistenTag) unlistenTag();
+        if (unlistenProvider) unlistenProvider();
       };
     }, [loadDashboardData]);
 
@@ -130,6 +170,12 @@ const renderFileIcon = (fileType: string) => {
       return <FileText className="w-4 h-4 text-[var(--accent-primary)]" />;
   }
 };
+
+const providerSummary = presentProviderStatus(
+  aiStatus,
+  isLoading,
+  aiStatusError,
+);
 
 return (
   <div className="p-6 space-y-6 max-w-6xl mx-auto">
@@ -206,22 +252,18 @@ return (
           <Cpu className="w-4 h-4 text-[var(--accent-primary)]" />
         </div>
         <div className="flex items-center gap-1.5 pt-1">
-          {aiStatus?.is_configured ? (
-            <span className="text-xs font-semibold text-[var(--status-success)] flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Connected (Gemini)</span>
-            </span>
-          ) : (
-            <span className="text-xs font-semibold text-amber-500 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
-              <span>Not Configured</span>
-            </span>
-          )}
+          <span
+            className={`flex items-center gap-1 text-xs font-semibold ${PROVIDER_STATUS_COLORS[providerSummary.state]}`}
+          >
+            {renderProviderStatusIcon(providerSummary.state)}
+            <span>{providerSummary.label}</span>
+          </span>
         </div>
-        <p className="text-[11px] text-[var(--text-tertiary)] truncate">
-          {aiStatus?.is_configured
-            ? aiStatus.active_generation_model
-            : "Set API key in Settings"}
+        <p
+          className="truncate text-[11px] text-[var(--text-tertiary)]"
+          title={providerSummary.detailTitle}
+        >
+          {providerSummary.detail}
         </p>
       </div>
     </div>

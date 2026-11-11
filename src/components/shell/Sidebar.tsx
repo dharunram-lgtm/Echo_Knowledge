@@ -73,48 +73,77 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed,
   onToggleCollapse,
 }) => {
+  const collapseButton = (
+    <button
+      type="button"
+      onClick={onToggleCollapse}
+      className="fluent-button-subtle inline-flex shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-sm)] p-1"
+      title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+      aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+      aria-expanded={!isCollapsed}
+      aria-controls="app-sidebar"
+    >
+      {isCollapsed ? (
+        <PanelLeft className="h-4 w-4" />
+      ) : (
+        <PanelLeftClose className="h-4 w-4" />
+      )}
+    </button>
+  );
+
   return (
     <aside
-      className={`h-full flex flex-col shrink-0 border-r border-[var(--border-subtle)] bg-[var(--bg-sidebar)] transition-all duration-200 select-none ${
-        isCollapsed ? "w-14" : "w-60"
+      id="app-sidebar"
+      className={`flex h-full shrink-0 select-none flex-col overflow-hidden border-r border-[var(--border-subtle)] bg-[var(--bg-sidebar)] transition-[width] duration-200 ease-in-out ${
+        isCollapsed ? "w-16" : "w-60"
       }`}
     >
       {/* Brand Header */}
-      <div className="flex items-center justify-between h-12 px-3 border-b border-[var(--border-subtle)]">
-        <div className="flex items-center gap-2 overflow-hidden">
-          <div className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-md)] bg-[var(--bg-elevated)] border border-[var(--border-default)] shadow-[var(--shadow-rest)] text-[var(--accent-primary)]">
-            <Cpu className="w-4 h-4" />
-          </div>
-          {!isCollapsed && (
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs font-semibold tracking-wider text-[var(--text-primary)] uppercase">
-                ECHO
-              </span>
-              <span className="text-[10px] text-[var(--text-tertiary)] truncate">
-                AI Knowledge OS
-              </span>
+      <div
+        className={`shrink-0 border-b border-[var(--border-subtle)] ${
+          isCollapsed
+            ? "flex flex-col items-center gap-1.5 py-2"
+            : "flex h-12 items-center px-3"
+        }`}
+      >
+        {isCollapsed ? (
+          <>
+            <div
+              className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--accent-primary)] shadow-[var(--shadow-rest)]"
+              title="ECHO - AI Knowledge OS"
+              aria-hidden="true"
+            >
+              <Cpu className="h-4 w-4" />
             </div>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onToggleCollapse}
-          className="fluent-button-subtle p-1 rounded-[var(--radius-sm)] cursor-pointer"
-          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {isCollapsed ? (
-            <PanelLeft className="w-4 h-4" />
-          ) : (
-            <PanelLeftClose className="w-4 h-4" />
-          )}
-        </button>
+            {collapseButton}
+          </>
+        ) : (
+          <>
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--accent-primary)] shadow-[var(--shadow-rest)]">
+                <Cpu className="h-4 w-4" />
+              </div>
+              <div className="flex min-w-0 flex-col">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-primary)]">
+                  ECHO
+                </span>
+                <span className="truncate text-[10px] text-[var(--text-tertiary)]">
+                  AI Knowledge OS
+                </span>
+              </div>
+            </div>
+            <div className="ml-auto pl-2">{collapseButton}</div>
+          </>
+        )}
       </div>
 
       {/* Primary Navigation List */}
-      <div className="flex-1 py-3 px-2 space-y-1 overflow-y-auto">
+      <nav
+        aria-label="Primary navigation"
+        className="min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto px-2 py-3"
+      >
         {!isCollapsed && (
-          <div className="px-2 pb-1 text-[10px] font-semibold tracking-wider text-[var(--text-tertiary)] uppercase">
+          <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
             Navigation
           </div>
         )}
@@ -127,10 +156,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onNavigate(item.id)}
           />
         ))}
-      </div>
+      </nav>
 
       {/* Bottom Navigation / Settings */}
-      <div className="p-2 border-t border-[var(--border-subtle)] space-y-1">
+      <div className="shrink-0 space-y-1 border-t border-[var(--border-subtle)] p-2">
         <NavigationItem
           item={SETTINGS_NAV_ITEM}
           isActive={currentRoute === "settings"}
@@ -143,4 +172,3 @@ export const Sidebar: React.FC<SidebarProps> = ({
 };
 
 export default Sidebar;
-

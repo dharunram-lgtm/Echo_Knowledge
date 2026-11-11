@@ -118,6 +118,15 @@
   background-color: var(--accent-primary);
 }
 
+/* Compact icon rail state: center icons and remove label spacing */
+.fluent-nav-item--collapsed {
+  justify-content: center;
+  gap: 0;
+  min-height: 2.5rem;
+  padding-left: 0;
+  padding-right: 0;
+}
+
 /* Fluent Input Field */
 .fluent-input {
   width: 100%;
