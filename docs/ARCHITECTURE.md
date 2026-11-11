@@ -52,17 +52,17 @@ ECHO is architected around a dual-layer desktop paradigm:
 
 ### 3.1 Zero-Knowledge / Local-First Boundary
 - Documents imported into ECHO never leave the user's workstation without explicit consent.
-- All embedding generation and vector search will prioritize local execution (via local embedding models or optional cloud provider endpoints explicitly selected by the user).
+- Imported documents and generated embeddings are stored locally. Embedding generation uses the provider configured by the user (Gemini); cosine-similarity vector search runs locally over the stored embeddings. No developer-owned backend is involved.
 
 ### 3.2 Keyring & Secret Isolation
-- When users configure BYO API keys (e.g. OpenAI, Anthropic, Gemini), the credentials are transmitted over encrypted memory channels to the Rust backend.
+- When users configure BYO API keys (Gemini or Groq), the credentials are passed to the Rust backend over Tauri IPC.
 - Keys are persisted in the **Windows Credential Manager** via DPAPI-protected APIs.
-- Frontend JavaScript state only receives metadata indicators (e.g. `{ configured: true, provider: "openai" }`), never raw secret strings.
+- Frontend JavaScript state only receives metadata indicators (e.g. `{ configured: true, provider: "gemini" }`), never raw secret strings.
 
 ### 3.3 Restricted Tauri 2 Capabilities
 - ECHO's default capability configuration (`src-tauri/capabilities/default.json`) explicitly restricts frontend permissions:
   - `core:default`: Basic window lifecycle and event messaging.
-  - `opener:default`: Safe opening of explicit URLs in default system browser.
+  - `dialog:default`: Native file-open dialogs used for document import.
   - Arbitrary filesystem read/write is **denied**.
   - Arbitrary process execution is **denied**.
 
