@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ECHO Knowledge app icon">
+  <title>ECHO Knowledge</title>
+  <rect width="512" height="512" rx="112" fill="#111827"/>
+  <!-- Layered knowledge pages -->
+  <path d="M145 310V177c0-15 12-27 27-27h82v160" fill="none" stroke="#52647B" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M105 326V222c0-15 12-27 27-27h28" fill="none" stroke="#34445A" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Main document -->
+  <path d="M218 119h108l67 67v153H218c-16 0-29-13-29-29V148c0-16 13-29 29-29Z" fill="#F8FAFC"/>
+  <path d="M326 119v48c0 11 9 20 20 20h47" fill="#DCE5EF"/>
+  <path d="M244 220h103M244 258h116M244 296h82" fill="none" stroke="#172334" stroke-width="17" stroke-linecap="round"/>
+  <!-- Cyan orbit: connected ideas -->
+  <path d="M92 337c42 55 150 77 260 48 57-15 98-43 116-76" fill="none" stroke="#22D3EE" stroke-width="22" stroke-linecap="round"/>
+  <path d="M467 309c8-16 10-33 4-49" fill="none" stroke="#22D3EE" stroke-width="22" stroke-linecap="round"/>
+  <!-- Open knowledge/book base -->
+  <path d="M91 365c58-27 113-25 165 12 52-37 107-39 165-12l-23 55c-52-19-97-14-142 22-45-36-90-41-142-22Z" fill="#F8FAFC"/>
+  <path d="M256 377v65" fill="none" stroke="#111827" stroke-width="12" stroke-linecap="round"/>
+  <!-- Bookmark -->
+  <path d="M286 414h42v66l-21-15-21 15Z" fill="#22D3EE"/>
+</svg>
