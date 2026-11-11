@@ -238,6 +238,24 @@ export const Settings: React.FC = () => {
     }
   };
 
+  const handleOpenExternalUrl = async (url: string) => {
+    try {
+      const { openUrl } = await import("@tauri-apps/plugin-opener");
+      await openUrl(url);
+    } catch (err) {
+      console.error("Failed to open external URL with Tauri opener:", err);
+      try {
+        window.open(url, "_blank", "noopener,noreferrer");
+      } catch (fallbackErr) {
+        console.error("Fallback window.open also failed:", fallbackErr);
+        setFeedback({
+          type: "error",
+          message: `Unable to open browser link: ${String(err)}`,
+        });
+      }
+    }
+  };
+
   const handleReindexAll = async () => {
     try {
       setIsReindexing(true);
@@ -407,15 +425,22 @@ export const Settings: React.FC = () => {
               <Key className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
               <span>{selectedProvider.toUpperCase()} API Key</span>
             </label>
-            <a
-              href={selectedProvider === "groq" ? "https://console.groq.com/keys" : "https://aistudio.google.com/apikey"}
-              target="_blank"
-              rel="noreferrer"
-              className="text-[11px] text-[var(--accent-primary)] hover:underline inline-flex items-center gap-1"
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                const url =
+                  selectedProvider === "groq"
+                    ? "https://console.groq.com/keys"
+                    : "https://aistudio.google.com/apikey";
+                void handleOpenExternalUrl(url);
+              }}
+              className="text-[11px] text-[var(--accent-primary)] hover:underline inline-flex items-center gap-1 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent-primary)] rounded-[var(--radius-xs)]"
+              title={`Open ${selectedProvider === "groq" ? "Groq Console" : "Google AI Studio"} in external browser`}
             >
               <span>Get API key from {selectedProvider === "groq" ? "Groq Console" : "Google AI Studio"}</span>
               <ExternalLink className="w-3 h-3" />
-            </a>
+            </button>
           </div>
 
           <div className="relative">
