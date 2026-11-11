@@ -18,12 +18,18 @@ import React, {
 } from "react";
 import {
   AlertCircle,
+  AlertTriangle,
   BookOpen,
   Check,
+  Eye,
+  FileCode,
   FilePlus2,
+  FileSpreadsheet,
+  FileText,
   FolderOpen,
   FolderPlus,
   Loader2,
+  MoreVertical,
   Pencil,
   Plus,
   Search,
@@ -32,8 +38,9 @@ import {
 } from "lucide-react";
 import { CollectionService } from "@/services/collections/collectionService";
 import { DocumentService } from "@/services/documents/documentService";
+import { DocumentPreviewModal } from "@/components/documents/DocumentPreviewModal";
 import type { CollectionRecord, CollectionDocumentRecord } from "@/types/collections";
-import type { DocumentSummary } from "@/types/documents";
+import type { DocumentRecord, DocumentSummary } from "@/types/documents";
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -115,38 +122,179 @@ const CollectionListItem: React.FC<CollectionListItemProps> = ({
   </button>
 );
 
+function renderDocIcon(fileType: string) {
+  switch (fileType.toLowerCase()) {
+    case "pdf":
+      return <FileSpreadsheet className="h-4 w-4 shrink-0 text-rose-500" />;
+    case "md":
+      return <FileCode className="h-4 w-4 shrink-0 text-cyan-400" />;
+    default:
+      return <FileText className="h-4 w-4 shrink-0 text-[var(--accent-primary)]" />;
+  }
+}
+
 interface DocumentRowProps {
   doc: CollectionDocumentRecord;
+  onOpen: () => void;
   onRemove: () => void;
+  onDeletePermanent: () => void;
   isRemoving: boolean;
+  isDeleting: boolean;
+  isMenuOpen: boolean;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
 }
-const DocumentRow: React.FC<DocumentRowProps> = ({ doc, onRemove, isRemoving }) => (
-  <li className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2.5">
-    <BookOpen className="h-4 w-4 shrink-0 text-[var(--accent-primary)]" />
-    <div className="min-w-0 flex-1">
-      <p className="truncate text-sm font-medium text-[var(--text-primary)]">
-        {doc.filename}
-      </p>
-      <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">
-        {fileTypeLabel(doc.file_type)} · {formatBytes(doc.file_size)}
-      </p>
-    </div>
-    <button
-      type="button"
-      onClick={onRemove}
-      disabled={isRemoving}
-      title={`Remove "${doc.filename}" from this collection`}
-      aria-label={`Remove ${doc.filename} from collection`}
-      className="shrink-0 rounded p-1 text-[var(--text-secondary)] opacity-0 transition-opacity duration-100 hover:text-[var(--status-danger)] focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--status-danger)] group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      {isRemoving ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-      ) : (
-        <Trash2 className="h-3.5 w-3.5" />
-      )}
-    </button>
-  </li>
-);
+
+const DocumentRow: React.FC<DocumentRowProps> = ({
+  doc,
+  onOpen,
+  onRemove,
+  onDeletePermanent,
+  isRemoving,
+  isDeleting,
+  isMenuOpen,
+  onToggleMenu,
+  onCloseMenu,
+}) => {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Close menu on click outside or Escape
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onCloseMenu();
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onCloseMenu();
+        menuButtonRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMenuOpen, onCloseMenu]);
+
+  return (
+    <li className="group relative flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2.5 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)]">
+      <div className="shrink-0">
+        {renderDocIcon(doc.file_type)}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={onOpen}
+          className="text-left font-medium text-sm text-[var(--text-primary)] hover:text-[var(--accent-primary)] hover:underline truncate block w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] rounded-[var(--radius-sm)]"
+          title={`Open preview for "${doc.filename}"`}
+        >
+          {doc.filename}
+        </button>
+        <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">
+          {fileTypeLabel(doc.file_type)} · {formatBytes(doc.file_size)} · Added {new Date(doc.added_at).toLocaleDateString()}
+        </p>
+      </div>
+
+      {/* Action Buttons: Primary Open Button & Context Menu */}
+      <div className="relative flex items-center gap-1 shrink-0" ref={menuRef}>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="fluent-button text-xs py-1 px-2.5 opacity-80 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+          title={`Preview "${doc.filename}"`}
+          aria-label={`Preview ${doc.filename}`}
+        >
+          <Eye className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Preview</span>
+        </button>
+
+        <button
+          ref={menuButtonRef}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleMenu();
+          }}
+          disabled={isRemoving || isDeleting}
+          aria-haspopup="menu"
+          aria-expanded={isMenuOpen}
+          aria-label={`Actions for ${doc.filename}`}
+          title="More actions"
+          className={`rounded p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] transition-colors ${
+            isMenuOpen ? "bg-[var(--bg-active)] text-[var(--text-primary)]" : "opacity-80 group-hover:opacity-100"
+          }`}
+        >
+          {isRemoving || isDeleting ? (
+            <Loader2 className="h-4 w-4 animate-spin text-[var(--accent-primary)]" />
+          ) : (
+            <MoreVertical className="h-4 w-4" />
+          )}
+        </button>
+
+        {/* Dropdown Menu */}
+        {isMenuOpen && (
+          <div
+            role="menu"
+            aria-orientation="vertical"
+            className="absolute right-0 top-full mt-1.5 w-56 rounded-[var(--radius-md)] border border-[var(--border-strong)] bg-[var(--bg-elevated)] p-1 shadow-[var(--shadow-dialog)] z-30 animate-in fade-in zoom-in-95 duration-100"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onCloseMenu();
+                onOpen();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-xs text-left text-[var(--text-primary)] hover:bg-[var(--bg-active)] focus:bg-[var(--bg-active)] focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent-primary)] transition-colors"
+            >
+              <Eye className="h-3.5 w-3.5 text-[var(--accent-primary)]" />
+              <span>Open Document</span>
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onCloseMenu();
+                onRemove();
+              }}
+              disabled={isRemoving}
+              className="flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-xs text-left text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-active)] focus:bg-[var(--bg-active)] focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent-primary)] transition-colors disabled:opacity-50"
+            >
+              <X className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+              <span>Remove from collection</span>
+            </button>
+
+            <div className="my-1 border-t border-[var(--border-subtle)]" role="separator" />
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onCloseMenu();
+                onDeletePermanent();
+              }}
+              disabled={isDeleting}
+              className="flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-xs text-left text-[var(--status-danger)] hover:bg-[var(--status-danger)]/10 focus:bg-[var(--status-danger)]/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--status-danger)] transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5 text-[var(--status-danger)]" />
+              <span>Delete from ECHO</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </li>
+  );
+};
 
 // ─── Create / Edit collection form ────────────────────────────────────────────
 
@@ -492,6 +640,80 @@ const DeleteConfirm: React.FC<DeleteConfirmProps> = ({
   </div>
 );
 
+// ─── Delete document from ECHO confirmation dialog ────────────────────────────
+
+interface DeleteDocPermanentConfirmProps {
+  filename: string;
+  onConfirm: () => Promise<void>;
+  onCancel: () => void;
+  isDeleting: boolean;
+  deleteError: string | null;
+}
+
+const DeleteDocPermanentConfirm: React.FC<DeleteDocPermanentConfirmProps> = ({
+  filename,
+  onConfirm,
+  onCancel,
+  isDeleting,
+  deleteError,
+}) => (
+  <div
+    role="dialog"
+    aria-modal="true"
+    aria-label="Confirm permanent document deletion"
+    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+  >
+    <div className="flex w-full max-w-md flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--status-danger)]/50 bg-[var(--bg-elevated)] p-5 shadow-[var(--shadow-dialog)]">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--status-danger)]/15 text-[var(--status-danger)]">
+          <AlertTriangle className="h-5 w-5" />
+        </span>
+        <div className="space-y-1">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+            Delete document permanently from ECHO?
+          </h2>
+          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+            Are you sure you want to permanently delete <strong className="text-[var(--text-primary)]">"{filename}"</strong> from your local ECHO repository?
+          </p>
+          <div className="mt-2 rounded-[var(--radius-md)] bg-[var(--status-danger)]/10 border border-[var(--status-danger)]/20 p-2.5 text-[11px] text-[var(--status-danger)] space-y-1">
+            <p className="font-semibold">⚠️ This is a permanent destructive action:</p>
+            <ul className="list-disc list-inside space-y-0.5 text-[10.5px]">
+              <li>Removes the stored copy, extracted text, and chunks.</li>
+              <li>Deletes all vector embeddings and RAG search index data.</li>
+              <li>Removes this document from <strong>all</strong> collections where it is a member.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {deleteError && <InlineAlert message={deleteError} />}
+
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isDeleting}
+          className="fluent-button text-xs disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={() => void onConfirm()}
+          disabled={isDeleting}
+          className="fluent-button text-xs font-medium text-[var(--accent-foreground)] bg-[var(--status-danger)] border-[var(--status-danger)] hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--status-danger)] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isDeleting ? (
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" /><span>Deleting…</span></>
+          ) : (
+            <><Trash2 className="h-3.5 w-3.5" /><span>Permanently Delete</span></>
+          )}
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 type Panel =
@@ -499,7 +721,8 @@ type Panel =
   | { kind: "create" }
   | { kind: "edit"; collection: CollectionRecord }
   | { kind: "deleteConfirm"; collection: CollectionRecord }
-  | { kind: "addDocuments" };
+  | { kind: "addDocuments" }
+  | { kind: "deleteDocConfirm"; doc: CollectionDocumentRecord };
 
 export const Collections: React.FC = () => {
   // ── Collection list state ──────────────────────────────────────────────────
@@ -513,6 +736,18 @@ export const Collections: React.FC = () => {
   const [documents, setDocuments] = useState<CollectionDocumentRecord[] | null>(null);
   const [docsError, setDocsError] = useState<string | null>(null);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
+
+  // ── Document Preview modal state ───────────────────────────────────────────
+  const [previewDoc, setPreviewDoc] = useState<DocumentRecord | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  // ── Active document action menu state ──────────────────────────────────────
+  const [activeMenuDocId, setActiveMenuDocId] = useState<string | null>(null);
+
+  // ── Permanent document deletion state ──────────────────────────────────────
+  const [deletingPermanentDocId, setDeletingPermanentDocId] = useState<string | null>(null);
+  const [docDeleteError, setDocDeleteError] = useState<string | null>(null);
 
   // ── Mutation state ─────────────────────────────────────────────────────────
   const [removingDocId, setRemovingDocId] = useState<string | null>(null);
@@ -672,6 +907,7 @@ export const Collections: React.FC = () => {
   const handleRemoveDocument = async (docId: string) => {
     if (!selectedId) return;
     setRemovingDocId(docId);
+    setActiveMenuDocId(null);
     try {
       await CollectionService.removeDocumentsFromCollection(selectedId, [docId]);
       await loadDocuments(selectedId);
@@ -683,10 +919,41 @@ export const Collections: React.FC = () => {
     }
   };
 
+  const handleOpenPreview = async (docId: string) => {
+    setActiveMenuDocId(null);
+    try {
+      const fullDoc = await DocumentService.getDocument(docId);
+      setPreviewDoc(fullDoc);
+      setIsPreviewOpen(true);
+      setPreviewError(null);
+    } catch (err: unknown) {
+      console.error("Failed to open document preview:", err);
+      setPreviewError(`Failed to load document: ${formatError(err)}`);
+    }
+  };
+
+  const handleDeletePermanent = async (doc: CollectionDocumentRecord) => {
+    setDeletingPermanentDocId(doc.id);
+    setDocDeleteError(null);
+    try {
+      await DocumentService.deleteDocument(doc.id);
+      await loadCollections();
+      if (selectedId) {
+        await loadDocuments(selectedId);
+      }
+      setPanel({ kind: "none" });
+    } catch (err: unknown) {
+      setDocDeleteError(formatError(err));
+    } finally {
+      setDeletingPermanentDocId(null);
+    }
+  };
+
   const closePanel = () => {
     setPanel({ kind: "none" });
     setFormError(null);
     setDeleteError(null);
+    setDocDeleteError(null);
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -711,6 +978,23 @@ export const Collections: React.FC = () => {
           deleteError={deleteError}
         />
       )}
+
+      {panel.kind === "deleteDocConfirm" && (
+        <DeleteDocPermanentConfirm
+          filename={panel.doc.filename}
+          onConfirm={() => handleDeletePermanent(panel.doc)}
+          onCancel={closePanel}
+          isDeleting={deletingPermanentDocId === panel.doc.id}
+          deleteError={docDeleteError}
+        />
+      )}
+
+      {/* Document Preview Modal */}
+      <DocumentPreviewModal
+        document={previewDoc}
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+      />
 
       {/* Page layout */}
       <div className="flex h-full min-h-0 overflow-hidden">
@@ -941,6 +1225,14 @@ export const Collections: React.FC = () => {
 
               {/* Document list */}
               <div className="flex-1 overflow-y-auto px-6 py-4">
+                {previewError && (
+                  <div className="mb-3">
+                    <InlineAlert
+                      message={previewError}
+                      onDismiss={() => setPreviewError(null)}
+                    />
+                  </div>
+                )}
                 {isLoadingDocs ? (
                   <div className="flex items-center justify-center gap-2 py-12 text-xs text-[var(--text-secondary)]">
                     <Loader2 className="h-4 w-4 animate-spin" /> Loading documents…
@@ -978,8 +1270,16 @@ export const Collections: React.FC = () => {
                       <DocumentRow
                         key={doc.id}
                         doc={doc}
+                        onOpen={() => void handleOpenPreview(doc.id)}
                         onRemove={() => void handleRemoveDocument(doc.id)}
+                        onDeletePermanent={() => setPanel({ kind: "deleteDocConfirm", doc })}
                         isRemoving={removingDocId === doc.id}
+                        isDeleting={deletingPermanentDocId === doc.id}
+                        isMenuOpen={activeMenuDocId === doc.id}
+                        onToggleMenu={() =>
+                          setActiveMenuDocId((prev) => (prev === doc.id ? null : doc.id))
+                        }
+                        onCloseMenu={() => setActiveMenuDocId(null)}
                       />
                     ))}
                   </ul>
