@@ -1,4 +1,5 @@
 pub mod chunks;
+pub mod collections;
 pub mod connection;
 pub mod conversations;
 pub mod documents;
@@ -11,6 +12,7 @@ pub mod settings;
 pub mod tags;
 
 pub use chunks::*;
+pub use collections::*;
 pub use connection::AppStorage;
 pub use conversations::*;
 pub use documents::*;

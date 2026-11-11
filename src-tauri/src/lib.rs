@@ -34,6 +34,15 @@ pub fn run() {
             commands::documents::search_documents,
             commands::documents::delete_document,
             commands::documents::get_storage_stats,
+            // Phase 1 Manual Collections
+            commands::collections::list_collections,
+            commands::collections::get_collection,
+            commands::collections::create_collection,
+            commands::collections::update_collection,
+            commands::collections::delete_collection,
+            commands::collections::add_documents_to_collection,
+            commands::collections::remove_documents_from_collection,
+            commands::collections::get_collection_documents,
             // Phase 3 AI & RAG commands
             commands::ai::get_ai_status,
             commands::ai::discover_models,

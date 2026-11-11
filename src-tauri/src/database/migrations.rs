@@ -37,6 +37,10 @@ pub fn run_migrations(conn: &Connection) -> Result<(), String> {
         apply_v8_migration(conn).map_err(|e| format!("Failed to apply migration v8: {}", e))?;
     }
 
+    if current_version < 9 {
+        apply_v9_migration(conn).map_err(|e| format!("Failed to apply migration v9: {}", e))?;
+    }
+
     Ok(())
 }
 
@@ -469,6 +473,41 @@ fn apply_v8_migration(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_conflicts_concept ON potential_conflicts(concept_id);
 
         PRAGMA user_version = 8;
+        ",
+    )?;
+
+    tx.commit()?;
+    Ok(())
+}
+
+fn apply_v9_migration(conn: &Connection) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+
+    tx.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS collections (
+            id TEXT PRIMARY KEY NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            color TEXT,
+            icon TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_collections_name ON collections(name COLLATE NOCASE);
+
+        CREATE TABLE IF NOT EXISTS collection_documents (
+            collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+            document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+            added_at TEXT NOT NULL,
+            PRIMARY KEY (collection_id, document_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_collection_documents_document
+            ON collection_documents(document_id);
+
+        PRAGMA user_version = 9;
         ",
     )?;
 
