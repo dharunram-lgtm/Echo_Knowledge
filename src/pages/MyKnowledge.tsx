@@ -35,6 +35,7 @@ import { TagService } from "@/services/tags/tagService";
 import { RetryService } from "@/services/ai/retryService";
 import { DocumentPreviewModal } from "@/components/documents/DocumentPreviewModal";
 import { DuplicateNoticeModal } from "@/components/documents/DuplicateNoticeModal";
+import { DeleteConfirmModal } from "@/components/documents/DeleteConfirmModal";
 import { formatBytes } from "@/utils";
 import { useRouter } from "@/router";
 
@@ -65,6 +66,9 @@ export const MyKnowledge: React.FC = () => {
 
   // Deletion state
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; filename: string } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   // Phase 3.3 Tags State
   const [documentTagsMap, setDocumentTagsMap] = useState<Record<string, DocumentTagRecord[]>>({});
@@ -406,25 +410,48 @@ export const MyKnowledge: React.FC = () => {
     }
   }, [previewDocumentId, handlePreview, clearPreviewDocumentId]);
 
-  const handleDelete = async (id: string, filename: string) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${filename}" from your local knowledge repository? This removes the stored copy, extracted text, chunks, and embeddings.`
-    );
-    if (!confirmed) return;
+  const openDeleteModal = (
+    id: string,
+    filename: string,
+    triggerElement?: HTMLButtonElement | null
+  ) => {
+    deleteTriggerRef.current = triggerElement || null;
+    setDeleteError(null);
+    setDeleteTarget({ id, filename });
+  };
 
+  const closeDeleteModal = () => {
+    if (deletingId) return; // Prevent closing while in-flight
+    setDeleteTarget(null);
+    setDeleteError(null);
+    // Return focus to the button that triggered the modal
+    if (deleteTriggerRef.current) {
+      deleteTriggerRef.current.focus();
+      deleteTriggerRef.current = null;
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget || deletingId) return;
+
+    const { id, filename } = deleteTarget;
     try {
       setDeletingId(id);
+      setDeleteError(null);
       await DocumentService.deleteDocument(id);
       setNotification({
         type: "info",
         message: `Deleted "${filename}" and its associated embeddings from local storage.`,
       });
+      setDeleteTarget(null);
+      deleteTriggerRef.current = null;
       await fetchDocuments();
       if (searchResults) {
         setSearchResults((prev) => (prev ? prev.filter((r) => r.id !== id) : null));
       }
     } catch (err) {
       console.error("Failed to delete document:", err);
+      setDeleteError("Failed to delete document: " + String(err));
       setNotification({
         type: "error",
         message: "Failed to delete document: " + String(err),
@@ -930,7 +957,7 @@ export const MyKnowledge: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(result.id, result.filename)}
+                        onClick={(e) => openDeleteModal(result.id, result.filename, e.currentTarget)}
                         disabled={deletingId === result.id}
                         className="fluent-button text-xs py-1 px-2 text-[var(--status-danger)] hover:bg-[var(--status-danger)]/10"
                         title="Delete document"
@@ -1277,7 +1304,7 @@ export const MyKnowledge: React.FC = () => {
 
                         <button
                           type="button"
-                          onClick={() => handleDelete(doc.id, doc.filename)}
+                          onClick={(e) => openDeleteModal(doc.id, doc.filename, e.currentTarget)}
                           disabled={deletingId === doc.id || isThisIndexing}
                           className="fluent-button text-xs py-1 px-2 text-[var(--status-danger)] hover:bg-[var(--status-danger)]/10"
                           title="Delete document"
@@ -1304,6 +1331,15 @@ export const MyKnowledge: React.FC = () => {
         duplicates={duplicates}
         isOpen={isDuplicateModalOpen}
         onClose={() => setIsDuplicateModalOpen(false)}
+      />
+
+      <DeleteConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        filename={deleteTarget?.filename || ""}
+        onConfirm={handleConfirmDelete}
+        onCancel={closeDeleteModal}
+        isDeleting={Boolean(deletingId)}
+        error={deleteError}
       />
     </div>
   );

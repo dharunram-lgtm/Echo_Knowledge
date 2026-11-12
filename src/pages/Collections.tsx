@@ -18,7 +18,6 @@ import React, {
 } from "react";
 import {
   AlertCircle,
-  AlertTriangle,
   BookOpen,
   Check,
   Eye,
@@ -39,6 +38,7 @@ import {
 import { CollectionService } from "@/services/collections/collectionService";
 import { DocumentService } from "@/services/documents/documentService";
 import { DocumentPreviewModal } from "@/components/documents/DocumentPreviewModal";
+import { DeleteConfirmModal } from "@/components/documents/DeleteConfirmModal";
 import type { CollectionRecord, CollectionDocumentRecord } from "@/types/collections";
 import type { DocumentRecord, DocumentSummary } from "@/types/documents";
 
@@ -640,79 +640,6 @@ const DeleteConfirm: React.FC<DeleteConfirmProps> = ({
   </div>
 );
 
-// ─── Delete document from ECHO confirmation dialog ────────────────────────────
-
-interface DeleteDocPermanentConfirmProps {
-  filename: string;
-  onConfirm: () => Promise<void>;
-  onCancel: () => void;
-  isDeleting: boolean;
-  deleteError: string | null;
-}
-
-const DeleteDocPermanentConfirm: React.FC<DeleteDocPermanentConfirmProps> = ({
-  filename,
-  onConfirm,
-  onCancel,
-  isDeleting,
-  deleteError,
-}) => (
-  <div
-    role="dialog"
-    aria-modal="true"
-    aria-label="Confirm permanent document deletion"
-    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150"
-  >
-    <div className="flex w-full max-w-md flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--status-danger)]/50 bg-[var(--bg-elevated)] p-5 shadow-[var(--shadow-dialog)]">
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--status-danger)]/15 text-[var(--status-danger)]">
-          <AlertTriangle className="h-5 w-5" />
-        </span>
-        <div className="space-y-1">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            Delete document permanently from ECHO?
-          </h2>
-          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-            Are you sure you want to permanently delete <strong className="text-[var(--text-primary)]">"{filename}"</strong> from your local ECHO repository?
-          </p>
-          <div className="mt-2 rounded-[var(--radius-md)] bg-[var(--status-danger)]/10 border border-[var(--status-danger)]/20 p-2.5 text-[11px] text-[var(--status-danger)] space-y-1">
-            <p className="font-semibold">⚠️ This is a permanent destructive action:</p>
-            <ul className="list-disc list-inside space-y-0.5 text-[10.5px]">
-              <li>Removes the stored copy, extracted text, and chunks.</li>
-              <li>Deletes all vector embeddings and RAG search index data.</li>
-              <li>Removes this document from <strong>all</strong> collections where it is a member.</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {deleteError && <InlineAlert message={deleteError} />}
-
-      <div className="flex items-center justify-end gap-2 pt-1">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isDeleting}
-          className="fluent-button text-xs disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={() => void onConfirm()}
-          disabled={isDeleting}
-          className="fluent-button text-xs font-medium text-[var(--accent-foreground)] bg-[var(--status-danger)] border-[var(--status-danger)] hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--status-danger)] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isDeleting ? (
-            <><Loader2 className="h-3.5 w-3.5 animate-spin" /><span>Deleting…</span></>
-          ) : (
-            <><Trash2 className="h-3.5 w-3.5" /><span>Permanently Delete</span></>
-          )}
-        </button>
-      </div>
-    </div>
-  </div>
-);
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -980,12 +907,13 @@ export const Collections: React.FC = () => {
       )}
 
       {panel.kind === "deleteDocConfirm" && (
-        <DeleteDocPermanentConfirm
+        <DeleteConfirmModal
+          isOpen={true}
           filename={panel.doc.filename}
           onConfirm={() => handleDeletePermanent(panel.doc)}
           onCancel={closePanel}
           isDeleting={deletingPermanentDocId === panel.doc.id}
-          deleteError={docDeleteError}
+          error={docDeleteError}
         />
       )}
 
