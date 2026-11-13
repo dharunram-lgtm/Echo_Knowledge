@@ -2,7 +2,7 @@ use chrono::Utc;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
 use crate::database::{
@@ -281,7 +281,11 @@ pub fn search_documents(
 }
 
 #[tauri::command]
-pub fn delete_document(storage: State<AppStorage>, id: String) -> Result<bool, String> {
+pub fn delete_document(
+    app: AppHandle,
+    storage: State<AppStorage>,
+    id: String,
+) -> Result<bool, String> {
     let conn = storage.conn.lock().map_err(|e| e.to_string())?;
     let stored_path_opt = database::delete_document(&conn, &id).map_err(|e| e.to_string())?;
 
@@ -291,6 +295,9 @@ pub fn delete_document(storage: State<AppStorage>, id: String) -> Result<bool, S
         if storage.is_path_in_managed_storage(&path) && path.exists() {
             let _ = fs::remove_file(path);
         }
+        // Emit events so Knowledge Graph and Tag views refresh dynamically
+        let _ = app.emit("relationships:changed", ());
+        let _ = app.emit("tagging:status_changed", ());
         Ok(true)
     } else {
         Ok(false)

@@ -251,7 +251,63 @@ pub fn delete_document(conn: &Connection, id: &str) -> Result<Option<String>> {
 
     if let Some(row) = rows.next()? {
         let stored_path: String = row.get(0)?;
-        conn.execute("DELETE FROM documents WHERE id = ?1;", params![id])?;
+
+        // Execute deletion and knowledge graph cleanup within a transaction
+        let tx = conn.unchecked_transaction()?;
+
+        // 1. Delete the document record itself (foreign keys with ON DELETE CASCADE will handle document_chunks,
+        // document_embeddings, document_indexing_status, document_tags, document_concepts, collection_documents)
+        tx.execute("DELETE FROM documents WHERE id = ?1;", params![id])?;
+
+        // 2. Clear any concept_relationships that originated exclusively from this document if they have no other evidence
+        // Note: concept_relationships schema has ON DELETE SET NULL for source_document_id.
+        // We delete relationships whose source_document_id was this document and are now NULL or were this document.
+        tx.execute(
+            "DELETE FROM concept_relationships WHERE source_document_id IS NULL OR source_document_id = ?1;",
+            params![id],
+        )?;
+
+        // Also clean suggested_relationships originating from this document
+        tx.execute(
+            "DELETE FROM suggested_relationships WHERE source_document_id IS NULL OR source_document_id = ?1;",
+            params![id],
+        )?;
+
+        // 3. Clean up orphaned concepts:
+        // Delete concepts that have NO remaining document associations (NOT IN document_concepts)
+        // AND are NOT manually created (manual concepts are tagged with description = 'User-defined concept')
+        tx.execute(
+            "DELETE FROM concepts
+             WHERE id NOT IN (SELECT DISTINCT concept_id FROM document_concepts)
+               AND (description IS NULL OR description != 'User-defined concept');",
+            [],
+        )?;
+
+        // 4. Any relationships (confirmed or suggested) or clusters or node positions connected to deleted concepts
+        // are automatically cascade deleted by SQLite (ON DELETE CASCADE on source_concept_id, target_concept_id, concept_id),
+        // but let's also ensure any broken relationship records with nonexistent concepts are purged:
+        tx.execute(
+            "DELETE FROM concept_relationships
+             WHERE source_concept_id NOT IN (SELECT id FROM concepts)
+                OR target_concept_id NOT IN (SELECT id FROM concepts);",
+            [],
+        )?;
+
+        tx.execute(
+            "DELETE FROM suggested_relationships
+             WHERE source_concept_id NOT IN (SELECT id FROM concepts)
+                OR target_concept_id NOT IN (SELECT id FROM concepts);",
+            [],
+        )?;
+
+        // Clean orphaned tags (tags not used in any document_tags)
+        tx.execute(
+            "DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM document_tags);",
+            [],
+        )?;
+
+        tx.commit()?;
+
         Ok(Some(stored_path))
     } else {
         Ok(None)

@@ -41,6 +41,10 @@ pub fn run_migrations(conn: &Connection) -> Result<(), String> {
         apply_v9_migration(conn).map_err(|e| format!("Failed to apply migration v9: {}", e))?;
     }
 
+    if current_version < 10 {
+        apply_v10_migration(conn).map_err(|e| format!("Failed to apply migration v10: {}", e))?;
+    }
+
     Ok(())
 }
 
@@ -508,6 +512,55 @@ fn apply_v9_migration(conn: &Connection) -> Result<()> {
             ON collection_documents(document_id);
 
         PRAGMA user_version = 9;
+        ",
+    )?;
+
+    tx.commit()?;
+    Ok(())
+}
+
+fn apply_v10_migration(conn: &Connection) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+
+    tx.execute_batch(
+        "
+        -- 1. Remove relationships whose endpoints or source documents no longer exist
+        DELETE FROM concept_relationships
+        WHERE source_concept_id NOT IN (SELECT id FROM concepts)
+           OR target_concept_id NOT IN (SELECT id FROM concepts);
+
+        DELETE FROM suggested_relationships
+        WHERE source_concept_id NOT IN (SELECT id FROM concepts)
+           OR target_concept_id NOT IN (SELECT id FROM concepts);
+
+        -- Purge relationships originating from non-existent documents
+        DELETE FROM concept_relationships
+        WHERE source_document_id IS NOT NULL
+          AND source_document_id NOT IN (SELECT id FROM documents);
+
+        DELETE FROM suggested_relationships
+        WHERE source_document_id IS NOT NULL
+          AND source_document_id NOT IN (SELECT id FROM documents);
+
+        -- 2. Clean orphaned concepts with 0 remaining document associations, preserving manually created ones
+        DELETE FROM concepts
+        WHERE id NOT IN (SELECT DISTINCT concept_id FROM document_concepts)
+          AND (description IS NULL OR description != 'User-defined concept');
+
+        -- 3. Secondary relationship purge in case concepts were deleted above
+        DELETE FROM concept_relationships
+        WHERE source_concept_id NOT IN (SELECT id FROM concepts)
+           OR target_concept_id NOT IN (SELECT id FROM concepts);
+
+        DELETE FROM suggested_relationships
+        WHERE source_concept_id NOT IN (SELECT id FROM concepts)
+           OR target_concept_id NOT IN (SELECT id FROM concepts);
+
+        -- 4. Clean orphaned tags with no document associations
+        DELETE FROM tags
+        WHERE id NOT IN (SELECT DISTINCT tag_id FROM document_tags);
+
+        PRAGMA user_version = 10;
         ",
     )?;
 
