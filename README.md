@@ -4,7 +4,7 @@ ECHO Knowledge is a local-first, AI-powered knowledge management system and pers
 
 Built with **Tauri 2**, **Rust**, **React 19**, **TypeScript**, and **SQLite**, ECHO Knowledge combines the performance and security of a local desktop application with optional cloud intelligence via Bring Your Own Key (BYOK) support for **Google Gemini** and **Groq**.
 
-> **Latest Release:** [v1.1.0](https://github.com/dharunram-lgtm/Echo_Knowledge/releases/tag/v1.1.0) · Windows 11 / 10 x64 · Tauri 2 + NSIS
+> **Latest Release:** [v1.2.1](https://github.com/dharunram-lgtm/Echo_Knowledge/releases/tag/v1.2.1) · Windows 11 / 10 x64 · Tauri 2 + NSIS
 
 ---
 
@@ -23,7 +23,7 @@ Modern personal knowledge management software often forces a trade-off: surrende
 
 - **Local Document Management:** Import PDF, Markdown (`.md`), and plain-text (`.txt`) documents into a managed local vault.
 - **SHA-256 Deduplication:** Automatic content hashing identifies duplicate files before ingestion, preventing redundant storage and indexing.
-- **Document Collections (v1.1.0):** Organize documents into custom, persistent collections with dedicated color tags, document counts, and in-collection document previews.
+- **Document Collections (v1.2.1):** Organize documents into custom, persistent collections with dedicated color tags, document counts, and in-collection document previews.
 - **Semantic Document Search:** Split documents into semantic chunks and retrieve information based on conceptual meaning using locally evaluated vector similarity (cosine similarity).
 - **Fast Local Search:** Immediate keyword and filename search operating directly against local SQLite tables without requiring network connectivity.
 - **Ask ECHO — Grounded AI Answers:** Interactive dialogue interface that constructs augmented prompts from retrieved document passages, providing grounded responses with verifiable source citations.
@@ -127,13 +127,13 @@ For an in-depth breakdown of system design and IPC commands, see [ARCHITECTURE.m
 
 ## 7. Download and Installation
 
-### Official Windows Release (v1.1.0)
+### Official Windows Release (v1.2.1)
 
-Download the official setup installer from the [GitHub Releases](https://github.com/dharunram-lgtm/Echo_Knowledge/releases/tag/v1.1.0) page:
+Download the official setup installer from the [GitHub Releases](https://github.com/dharunram-lgtm/Echo_Knowledge/releases/tag/v1.2.1) page:
 
-- **Installer:** `ECHO_Knowledge_Windows11_v1.1.0_x64-setup.exe`
-- **Release:** v1.1.0
-- **SHA-256 Checksum:** `3A1F9EF9DFF49A740FB9120B905F6BA6A67E9543E70F418FBD94B2B6D32F8C09`
+- **Installer:** `ECHO_Knowledge_Windows11_v1.2.1_x64-setup.exe`
+- **Release:** v1.2.1
+- **SHA-256 Checksum:** `5F9D493669ABCA46CE8C60FA88686693785C550D69CA1C66ADBC78AE1EF1A64C`
 
 ### Installation Steps
 1. Run `ECHO_Knowledge_Windows11_v1.1.0_x64-setup.exe`.
