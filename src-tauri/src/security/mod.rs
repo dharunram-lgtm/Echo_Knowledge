@@ -62,3 +62,36 @@ pub fn has_api_key(provider: &str) -> Result<bool, String> {
         Err(e) => Err(e),
     }
 }
+
+pub const WEB_CLIPPER_SERVICE_TARGET: &str = "web_clipper_token";
+
+/// Stores the Web Clipper pairing token in Windows Credential Manager
+pub fn store_clipper_token(token: &str) -> Result<(), String> {
+    store_api_key(WEB_CLIPPER_SERVICE_TARGET, token)
+}
+
+/// Retrieves the Web Clipper pairing token from Windows Credential Manager
+pub fn get_clipper_token() -> Result<Option<String>, String> {
+    get_api_key(WEB_CLIPPER_SERVICE_TARGET)
+}
+
+/// Deletes the Web Clipper pairing token from Windows Credential Manager
+pub fn delete_clipper_token() -> Result<bool, String> {
+    delete_api_key(WEB_CLIPPER_SERVICE_TARGET)
+}
+
+/// Timing-safe comparison of two strings to prevent timing attacks
+pub fn constant_time_compare(a: &str, b: &str) -> bool {
+    let a_bytes = a.as_bytes();
+    let b_bytes = b.as_bytes();
+
+    if a_bytes.len() != b_bytes.len() {
+        return false;
+    }
+
+    let mut result = 0u8;
+    for (x, y) in a_bytes.iter().zip(b_bytes.iter()) {
+        result |= x ^ y;
+    }
+    result == 0
+}

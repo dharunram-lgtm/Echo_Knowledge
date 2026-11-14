@@ -13,6 +13,14 @@ pub struct DocumentRecord {
     pub content_hash: String,
     pub imported_at: String,
     pub updated_at: String,
+    #[serde(default)]
+    pub source_url: Option<String>,
+    #[serde(default)]
+    pub author: Option<String>,
+    #[serde(default)]
+    pub favicon_url: Option<String>,
+    #[serde(default)]
+    pub metadata_json: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,6 +35,12 @@ pub struct DocumentSummary {
     pub imported_at: String,
     pub updated_at: String,
     pub text_length: usize,
+    #[serde(default)]
+    pub source_url: Option<String>,
+    #[serde(default)]
+    pub author: Option<String>,
+    #[serde(default)]
+    pub favicon_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,8 +68,9 @@ pub fn insert_document(conn: &Connection, doc: &DocumentRecord) -> Result<()> {
     conn.execute(
         "INSERT INTO documents (
             id, filename, original_path, stored_path, file_type,
-            file_size, extracted_text, content_hash, imported_at, updated_at
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10);",
+            file_size, extracted_text, content_hash, imported_at, updated_at,
+            source_url, author, favicon_url, metadata_json
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14);",
         params![
             doc.id,
             doc.filename,
@@ -66,9 +81,215 @@ pub fn insert_document(conn: &Connection, doc: &DocumentRecord) -> Result<()> {
             doc.extracted_text,
             doc.content_hash,
             doc.imported_at,
-            doc.updated_at
+            doc.updated_at,
+            doc.source_url,
+            doc.author,
+            doc.favicon_url,
+            doc.metadata_json,
         ],
     )?;
+    Ok(())
+}
+
+pub fn update_document_content(
+    conn: &Connection,
+    id: &str,
+    filename: &str,
+    extracted_text: &str,
+    file_size: i64,
+    content_hash: &str,
+    author: Option<&str>,
+    favicon_url: Option<&str>,
+    metadata_json: Option<&str>,
+) -> Result<()> {
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "UPDATE documents SET
+            filename = ?1,
+            extracted_text = ?2,
+            file_size = ?3,
+            content_hash = ?4,
+            author = ?5,
+            favicon_url = ?6,
+            metadata_json = ?7,
+            updated_at = ?8
+         WHERE id = ?9;",
+        params![
+            filename,
+            extracted_text,
+            file_size,
+            content_hash,
+            author,
+            favicon_url,
+            metadata_json,
+            now,
+            id,
+        ],
+    )?;
+    Ok(())
+}
+
+pub fn find_by_source_url(
+    conn: &Connection,
+    source_url: &str,
+) -> Result<Option<DocumentSummary>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, filename, original_path, stored_path, file_type, file_size, content_hash, imported_at, updated_at, LENGTH(extracted_text), source_url, author, favicon_url
+         FROM documents WHERE source_url = ?1;",
+    )?;
+
+    let mut rows = stmt.query(params![source_url])?;
+
+    if let Some(row) = rows.next()? {
+        Ok(Some(DocumentSummary {
+            id: row.get(0)?,
+            filename: row.get(1)?,
+            original_path: row.get(2)?,
+            stored_path: row.get(3)?,
+            file_type: row.get(4)?,
+            file_size: row.get(5)?,
+            content_hash: row.get(6)?,
+            imported_at: row.get(7)?,
+            updated_at: row.get(8)?,
+            text_length: row.get(9)?,
+            source_url: row.get(10)?,
+            author: row.get(11)?,
+            favicon_url: row.get(12)?,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn check_idempotency_key(
+    conn: &Connection,
+    idempotency_key: &str,
+) -> Result<Option<(String, String)>> {
+    let mut stmt = conn.prepare(
+        "SELECT document_id, payload_hash FROM clipper_sync_idempotency WHERE idempotency_key = ?1;",
+    )?;
+    let mut rows = stmt.query(params![idempotency_key])?;
+    if let Some(row) = rows.next()? {
+        Ok(Some((row.get(0)?, row.get(1)?)))
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn record_idempotency_key(
+    conn: &Connection,
+    idempotency_key: &str,
+    document_id: &str,
+    payload_hash: &str,
+) -> Result<()> {
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO clipper_sync_idempotency (idempotency_key, document_id, payload_hash, created_at)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(idempotency_key) DO UPDATE SET document_id = ?2, payload_hash = ?3;",
+        params![idempotency_key, document_id, payload_hash, now],
+    )?;
+    Ok(())
+}
+
+/// Atomically inserts a web note and its idempotency record within a single SQLite transaction
+pub fn insert_web_note_atomic(
+    conn: &Connection,
+    doc: &DocumentRecord,
+    idempotency_key: Option<&str>,
+    payload_hash: Option<&str>,
+) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+
+    tx.execute(
+        "INSERT INTO documents (
+            id, filename, original_path, stored_path, file_type,
+            file_size, extracted_text, content_hash, imported_at, updated_at,
+            source_url, author, favicon_url, metadata_json
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14);",
+        params![
+            doc.id,
+            doc.filename,
+            doc.original_path,
+            doc.stored_path,
+            doc.file_type,
+            doc.file_size,
+            doc.extracted_text,
+            doc.content_hash,
+            doc.imported_at,
+            doc.updated_at,
+            doc.source_url,
+            doc.author,
+            doc.favicon_url,
+            doc.metadata_json,
+        ],
+    )?;
+
+    if let (Some(ikey), Some(phash)) = (idempotency_key, payload_hash) {
+        let now = chrono::Utc::now().to_rfc3339();
+        tx.execute(
+            "INSERT INTO clipper_sync_idempotency (idempotency_key, document_id, payload_hash, created_at)
+             VALUES (?1, ?2, ?3, ?4);",
+            params![ikey, doc.id, phash, now],
+        )?;
+    }
+
+    tx.commit()?;
+    Ok(())
+}
+
+/// Atomically updates a web note and records its idempotency within a single SQLite transaction
+pub fn update_web_note_atomic(
+    conn: &Connection,
+    id: &str,
+    filename: &str,
+    extracted_text: &str,
+    file_size: i64,
+    content_hash: &str,
+    author: Option<&str>,
+    favicon_url: Option<&str>,
+    metadata_json: Option<&str>,
+    idempotency_key: Option<&str>,
+    payload_hash: Option<&str>,
+) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    let now = chrono::Utc::now().to_rfc3339();
+
+    tx.execute(
+        "UPDATE documents SET
+            filename = ?1,
+            extracted_text = ?2,
+            file_size = ?3,
+            content_hash = ?4,
+            author = ?5,
+            favicon_url = ?6,
+            metadata_json = ?7,
+            updated_at = ?8
+         WHERE id = ?9;",
+        params![
+            filename,
+            extracted_text,
+            file_size,
+            content_hash,
+            author,
+            favicon_url,
+            metadata_json,
+            now,
+            id,
+        ],
+    )?;
+
+    if let (Some(ikey), Some(phash)) = (idempotency_key, payload_hash) {
+        let now_str = chrono::Utc::now().to_rfc3339();
+        tx.execute(
+            "INSERT INTO clipper_sync_idempotency (idempotency_key, document_id, payload_hash, created_at)
+             VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(idempotency_key) DO UPDATE SET document_id = ?2, payload_hash = ?3;",
+            params![ikey, id, phash, now_str],
+        )?;
+    }
+
+    tx.commit()?;
     Ok(())
 }
 
@@ -77,7 +298,7 @@ pub fn find_by_content_hash(
     hash: &str,
 ) -> Result<Option<DocumentSummary>> {
     let mut stmt = conn.prepare(
-        "SELECT id, filename, original_path, stored_path, file_type, file_size, content_hash, imported_at, updated_at, LENGTH(extracted_text)
+        "SELECT id, filename, original_path, stored_path, file_type, file_size, content_hash, imported_at, updated_at, LENGTH(extracted_text), source_url, author, favicon_url
          FROM documents WHERE content_hash = ?1;",
     )?;
 
@@ -95,6 +316,9 @@ pub fn find_by_content_hash(
             imported_at: row.get(7)?,
             updated_at: row.get(8)?,
             text_length: row.get(9)?,
+            source_url: row.get(10)?,
+            author: row.get(11)?,
+            favicon_url: row.get(12)?,
         }))
     } else {
         Ok(None)
@@ -103,7 +327,7 @@ pub fn find_by_content_hash(
 
 pub fn get_all_documents(conn: &Connection) -> Result<Vec<DocumentSummary>> {
     let mut stmt = conn.prepare(
-        "SELECT id, filename, original_path, stored_path, file_type, file_size, content_hash, imported_at, updated_at, LENGTH(extracted_text)
+        "SELECT id, filename, original_path, stored_path, file_type, file_size, content_hash, imported_at, updated_at, LENGTH(extracted_text), source_url, author, favicon_url
          FROM documents
          ORDER BY imported_at DESC;",
     )?;
@@ -120,6 +344,9 @@ pub fn get_all_documents(conn: &Connection) -> Result<Vec<DocumentSummary>> {
             imported_at: row.get(7)?,
             updated_at: row.get(8)?,
             text_length: row.get(9)?,
+            source_url: row.get(10)?,
+            author: row.get(11)?,
+            favicon_url: row.get(12)?,
         })
     })?;
 
@@ -135,7 +362,7 @@ pub fn get_document_by_id(
     id: &str,
 ) -> Result<Option<DocumentRecord>> {
     let mut stmt = conn.prepare(
-        "SELECT id, filename, original_path, stored_path, file_type, file_size, extracted_text, content_hash, imported_at, updated_at
+        "SELECT id, filename, original_path, stored_path, file_type, file_size, extracted_text, content_hash, imported_at, updated_at, source_url, author, favicon_url, metadata_json
          FROM documents WHERE id = ?1;",
     )?;
 
@@ -153,6 +380,10 @@ pub fn get_document_by_id(
             content_hash: row.get(7)?,
             imported_at: row.get(8)?,
             updated_at: row.get(9)?,
+            source_url: row.get(10)?,
+            author: row.get(11)?,
+            favicon_url: row.get(12)?,
+            metadata_json: row.get(13)?,
         }))
     } else {
         Ok(None)

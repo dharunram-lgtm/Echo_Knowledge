@@ -45,6 +45,14 @@ pub fn run_migrations(conn: &Connection) -> Result<(), String> {
         apply_v10_migration(conn).map_err(|e| format!("Failed to apply migration v10: {}", e))?;
     }
 
+    if current_version < 11 {
+        apply_v11_migration(conn).map_err(|e| format!("Failed to apply migration v11: {}", e))?;
+    }
+
+    if current_version < 12 {
+        apply_v12_migration(conn).map_err(|e| format!("Failed to apply migration v12: {}", e))?;
+    }
+
     Ok(())
 }
 
@@ -564,6 +572,75 @@ fn apply_v10_migration(conn: &Connection) -> Result<()> {
         ",
     )?;
 
+    tx.commit()?;
+    Ok(())
+}
+
+fn apply_v11_migration(conn: &Connection) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+
+    // 1. Add Web Note metadata columns to documents (nullable, fully backward-compatible)
+    let _ = tx.execute(
+        "ALTER TABLE documents ADD COLUMN source_url TEXT;",
+        [],
+    );
+    let _ = tx.execute(
+        "ALTER TABLE documents ADD COLUMN author TEXT;",
+        [],
+    );
+    let _ = tx.execute(
+        "ALTER TABLE documents ADD COLUMN favicon_url TEXT;",
+        [],
+    );
+    let _ = tx.execute(
+        "ALTER TABLE documents ADD COLUMN metadata_json TEXT;",
+        [],
+    );
+
+    // 2. Index source_url for duplicate URL checks
+    tx.execute(
+        "CREATE INDEX IF NOT EXISTS idx_documents_source_url ON documents(source_url);",
+        [],
+    )?;
+
+    // 3. Idempotency table for network resiliency & duplicate sync prevention (Initial v11 schema)
+    tx.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS clipper_sync_idempotency (
+            idempotency_key TEXT PRIMARY KEY NOT NULL,
+            document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_clipper_idempotency_created
+            ON clipper_sync_idempotency(created_at);
+
+        PRAGMA user_version = 11;
+        ",
+    )?;
+
+    tx.commit()?;
+    Ok(())
+}
+
+fn apply_v12_migration(conn: &Connection) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+
+    // Safely add payload_hash to clipper_sync_idempotency if it doesn't exist
+    let has_payload_hash: bool = tx
+        .prepare("PRAGMA table_info(clipper_sync_idempotency);")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(|r| r.ok())
+        .any(|col| col == "payload_hash");
+
+    if !has_payload_hash {
+        tx.execute(
+            "ALTER TABLE clipper_sync_idempotency ADD COLUMN payload_hash TEXT NOT NULL DEFAULT '';",
+            [],
+        )?;
+    }
+
+    tx.execute("PRAGMA user_version = 12;", [])?;
     tx.commit()?;
     Ok(())
 }

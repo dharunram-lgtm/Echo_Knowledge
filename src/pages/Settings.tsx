@@ -28,6 +28,8 @@ import type {
   SafeProviderStatus,
 } from "@/types/ai";
 
+import { WebClipperSettingsSection } from "@/components/settings/WebClipperSettingsSection";
+
 export const Settings: React.FC = () => {
   const { theme, setTheme } = useTheme();
   const appInfo = useAppInfo();
@@ -706,6 +708,9 @@ export const Settings: React.FC = () => {
           </ul>
         </div>
       </div>
+
+      {/* Web Clipper Integration Section */}
+      <WebClipperSettingsSection />
 
       {/* Appearance Section */}
       <div className="fluent-card p-5 space-y-4">

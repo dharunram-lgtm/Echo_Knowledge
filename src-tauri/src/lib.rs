@@ -15,13 +15,22 @@ pub fn run() {
             // Automatically initialize local database and document storage directories
             let storage = AppStorage::initialize(app.handle())
                 .map_err(|e| Box::<dyn std::error::Error>::from(e))?;
+            // Reconcile and recover any crash artifacts from interrupted web clipper writes
+            if let Ok(conn) = storage.conn.lock() {
+                commands::web_clipper::reconcile_and_recover_clipper_files(&conn, &storage.documents_dir);
+            }
+
             app.manage(storage);
             app.manage(commands::ai::AIState::new());
             let coordinator = ai::IndexingCoordinator::new();
             app.manage(coordinator);
+            app.manage(commands::web_clipper::ClipperServerController::new());
 
             // Automatically start background indexing coordinator on startup
             ai::coordinator::start_startup_indexing(app.handle());
+
+            // Automatically start Web Clipper loopback server on 127.0.0.1:23119
+            commands::web_clipper::start_clipper_server(app.handle().clone());
 
             Ok(())
         })
@@ -34,6 +43,15 @@ pub fn run() {
             commands::documents::search_documents,
             commands::documents::delete_document,
             commands::documents::get_storage_stats,
+            // Web Clipper commands
+            commands::web_clipper::get_clipper_pairing_info,
+            commands::web_clipper::reveal_clipper_pairing_token,
+            commands::web_clipper::regenerate_clipper_pairing_token,
+            commands::web_clipper::revoke_clipper_pairing_token,
+            commands::web_clipper::authorize_clipper_extension,
+            commands::web_clipper::deauthorize_clipper_extension,
+            commands::web_clipper::set_clipper_server_state,
+            commands::web_clipper::test_clipper_server_connection,
             // Phase 1 Manual Collections
             commands::collections::list_collections,
             commands::collections::get_collection,

@@ -182,6 +182,10 @@ pub fn import_documents(
             content_hash: content_hash.clone(),
             imported_at: now.clone(),
             updated_at: now.clone(),
+            source_url: None,
+            author: None,
+            favicon_url: None,
+            metadata_json: None,
         };
 
         if let Err(e) = database::insert_document(&conn, &doc_record) {
@@ -206,6 +210,9 @@ pub fn import_documents(
             imported_at: now.clone(),
             updated_at: now,
             text_length: extracted_text.len(),
+            source_url: None,
+            author: None,
+            favicon_url: None,
         });
     }
 
@@ -349,6 +356,10 @@ mod tests {
             content_hash: "hash123456789".to_string(),
             imported_at: Utc::now().to_rfc3339(),
             updated_at: Utc::now().to_rfc3339(),
+            source_url: None,
+            author: None,
+            favicon_url: None,
+            metadata_json: None,
         };
 
         // 1. Insert
